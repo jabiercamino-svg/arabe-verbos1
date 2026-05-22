@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flashcards Árabe – Verbos</title>
+  
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #1a1a2e;
+      color: #e8e0d0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 20px 48px;
+    }
+    h1 {
+      font-family: Arial, sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: #f0c070;
+      letter-spacing: 1px;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 13px;
+      font-weight: 300;
+      color: #8a8090;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 10px 28px;
+      border-radius: 30px;
+      border: 1px solid #3a3050;
+      background: transparent;
+      color: #e8e0d0;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.1s;
+    }
+    .btn:hover { background: #2a2045; border-color: #f0c070; color: #f0c070; }
+    .btn:active { transform: scale(0.97); }
+    .btn.active { background: #f0c070; color: #1a1a2e; border-color: #f0c070; }
+    .card-container {
+      perspective: 1200px;
+      width: 100%;
+      max-width: 700px;
+      height: 380px;
+      cursor: pointer;
+    }
+    .card {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s cubic-bezier(.4,0,.2,1);
+    }
+    .card.flipped { transform: rotateY(180deg); }
+    .side {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 30px;
+      text-align: center;
+      gap: 12px;
+    }
+    .front { background: #12122a; border: 1px solid #2e2850; }
+    .back { transform: rotateY(180deg); background: #1e1840; border: 1px solid #f0c070; }
+    .arabic {
+      font-family: Arial, sans-serif;
+      font-size: 44px;
+      direction: rtl;
+      color: #f0c070;
+      line-height: 1.2;
+    }
+    .hint { font-size: 12px; color: #4a4060; letter-spacing: 2px; text-transform: uppercase; }
+    .pronunciation { font-size: 20px; font-style: italic; color: #a090c0; font-weight: 300; }
+    .meaning { font-size: 24px; font-weight: 700; color: #e8e0d0; }
+    .help { margin-top: 24px; font-size: 11px; color: #3a3050; letter-spacing: 1.5px; text-transform: uppercase; text-align: center; }
+    @media (max-width: 500px) {
+      .arabic { font-size: 32px; }
+      .card-container { height: 300px; }
+      h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>PRESENTE · المضارع</h1>
+  <div class="subtitle">Flashcards · Conjugación de verbos en árabe</div>
+
+  <div class="controls">
+    <button class="btn" onclick="prevCard()">⬅ Anterior</button>
+    <button class="btn" onclick="flipCard()">🔄 Girar</button>
+    <button class="btn" onclick="nextCard()">Siguiente ➡</button>
+    <button class="btn" id="randomBtn" onclick="toggleRandom()">🔀 Aleatorio: NO</button>
+    <button class="btn" onclick="shuffleCards()">⇄ Mezclar</button>
+  </div>
+
+  <div class="card-container">
+    <div class="card" id="card" onclick="flipCard()">
+      <div class="side front" id="front"></div>
+      <div class="side back" id="back"></div>
+    </div>
+  </div>
+
+  <div class="help">espacio = girar · ← → = navegar</div>
+
+  <script>
+    const pronouns = [
+      { label: 'أنا',       key: 'ana',     meaning: 'Yo',           conj: idx => conjug[idx][0] },
+      { label: 'نحن',       key: 'nahnu',   meaning: 'Nosotros',     conj: idx => conjug[idx][1] },
+      { label: 'أنتَ',      key: 'anta',    meaning: 'Tú (m)',       conj: idx => conjug[idx][2] },
+      { label: 'أنتِ',      key: 'anti',    meaning: 'Tú (f)',       conj: idx => conjug[idx][3] },
+      { label: 'أنتما',     key: 'antuma',  meaning: 'Vosotros dos', conj: idx => conjug[idx][4] },
+      { label: 'أنتم',      key: 'antum',   meaning: 'Vosotros',     conj: idx => conjug[idx][5] },
+      { label: 'أنتنّ',     key: 'antunna', meaning: 'Vosotras',     conj: idx => conjug[idx][6] },
+      { label: 'هو',        key: 'huwa',    meaning: 'Él',           conj: idx => conjug[idx][7] },
+      { label: 'هي',        key: 'hiya',    meaning: 'Ella',         conj: idx => conjug[idx][8] },
+      { label: 'هما مذكر', key: 'huma_m',  meaning: 'Ellos dos',    conj: idx => conjug[idx][9] },
+      { label: 'هما مؤنث', key: 'huma_f',  meaning: 'Ellas dos',    conj: idx => conjug[idx][10] },
+      { label: 'هم',        key: 'hum',     meaning: 'Ellos',        conj: idx => conjug[idx][11] },
+      { label: 'هنّ',       key: 'hunna',   meaning: 'Ellas',        conj: idx => conjug[idx][12] }
+    ];
+
+    // Conjugaciones en español: [yo, nosotros, tú(m), tú(f), vosotros dos, vosotros, vosotras, él, ella, ellos dos, ellas dos, ellos, ellas]
+    const conjug = [
+      // 0 beber
+      ['bebo','bebemos','bebes','bebes','bebéis','bebéis','bebéis','bebe','bebe','beben','beben','beben','beben'],
+      // 1 escribir
+      ['escribo','escribimos','escribes','escribes','escribís','escribís','escribís','escribe','escribe','escriben','escriben','escriben','escriben'],
+      // 2 leer
+      ['leo','leemos','lees','lees','leéis','leéis','leéis','lee','lee','leen','leen','leen','leen'],
+      // 3 ir
+      ['voy','vamos','vas','vas','vais','vais','vais','va','va','van','van','van','van'],
+      // 4 dormir
+      ['duermo','dormimos','duermes','duermes','dormís','dormís','dormís','duerme','duerme','duermen','duermen','duermen','duermen'],
+      // 5 vivir
+      ['vivo','vivimos','vives','vives','vivís','vivís','vivís','vive','vive','viven','viven','viven','viven'],
+      // 6 abrir
+      ['abro','abrimos','abres','abres','abrís','abrís','abrís','abre','abre','abren','abren','abren','abren'],
+      // 7 sentarse
+      ['me siento','nos sentamos','te sientas','te sientas','os sentáis','os sentáis','os sentáis','se sienta','se sienta','se sientan','se sientan','se sientan','se sientan'],
+      // 8 jugar
+      ['juego','jugamos','juegas','juegas','jugáis','jugáis','jugáis','juega','juega','juegan','juegan','juegan','juegan'],
+      // 9 entender
+      ['entiendo','entendemos','entiendes','entiendes','entendéis','entendéis','entendéis','entiende','entiende','entienden','entienden','entienden','entienden'],
+      // 10 escuchar/oír
+      ['escucho','escuchamos','escuchas','escuchas','escucháis','escucháis','escucháis','escucha','escucha','escuchan','escuchan','escuchan','escuchan'],
+      // 11 trabajar
+      ['trabajo','trabajamos','trabajas','trabajas','trabajáis','trabajáis','trabajáis','trabaja','trabaja','trabajan','trabajan','trabajan','trabajan'],
+      // 12 estudiar
+      ['estudio','estudiamos','estudias','estudias','estudiáis','estudiáis','estudiáis','estudia','estudia','estudian','estudian','estudian','estudian'],
+      // 13 conocer/saber
+      ['conozco','conocemos','conoces','conoces','conocéis','conocéis','conocéis','conoce','conoce','conocen','conocen','conocen','conocen'],
+      // 14 comer
+      ['como','comemos','comes','comes','coméis','coméis','coméis','come','come','comen','comen','comen','comen'],
+      // 15 cocinar
+      ['cocino','cocinamos','cocinas','cocinas','cocináis','cocináis','cocináis','cocina','cocina','cocinan','cocinan','cocinan','cocinan'],
+      // 16 limpiar
+      ['limpio','limpiamos','limpias','limpias','limpiáis','limpiáis','limpiáis','limpia','limpia','limpian','limpian','limpian','limpian'],
+      // 17 asistir
+      ['asisto','asistimos','asistes','asistes','asistís','asistís','asistís','asiste','asiste','asisten','asisten','asisten','asisten'],
+      // 18 memorizar
+      ['memorizo','memorizamos','memorizas','memorizas','memorizáis','memorizáis','memorizáis','memoriza','memoriza','memorizan','memorizan','memorizan','memorizan'],
+      // 19 explicar
+      ['explico','explicamos','explicas','explicas','explicáis','explicáis','explicáis','explica','explica','explican','explican','explican','explican'],
+      // 20 vestirse
+      ['me visto','nos vestimos','te vistes','te vistes','os vestís','os vestís','os vestís','se viste','se viste','se visten','se visten','se visten','se visten'],
+      // 21 montar/subir
+      ['monto','montamos','montas','montas','montáis','montáis','montáis','monta','monta','montan','montan','montan','montan'],
+      // 22 caminar
+      ['camino','caminamos','caminas','caminas','camináis','camináis','camináis','camina','camina','caminan','caminan','caminan','caminan'],
+      // 23 preguntar
+      ['pregunto','preguntamos','preguntas','preguntas','preguntáis','preguntáis','preguntáis','pregunta','pregunta','preguntan','preguntan','preguntan','preguntan'],
+      // 24 responder
+      ['respondo','respondemos','respondes','respondes','respondéis','respondéis','respondéis','responde','responde','responden','responden','responden','responden'],
+      // 25 entrar
+      ['entro','entramos','entras','entras','entráis','entráis','entráis','entra','entra','entran','entran','entran','entran'],
+      // 26 salir
+      ['salgo','salimos','sales','sales','salís','salís','salís','sale','sale','salen','salen','salen','salen'],
+      // 27 llegar
+      ['llego','llegamos','llegas','llegas','llegáis','llegáis','llegáis','llega','llega','llegan','llegan','llegan','llegan'],
+      // 28 encontrar
+      ['encuentro','encontramos','encuentras','encuentras','encontráis','encontráis','encontráis','encuentra','encuentra','encuentran','encuentran','encuentran','encuentran'],
+      // 29 parar/estar de pie
+      ['paro','paramos','paras','paras','paráis','paráis','paráis','para','para','paran','paran','paran','paran'],
+      // 30 empezar
+      ['empiezo','empezamos','empiezas','empiezas','empezáis','empezáis','empezáis','empieza','empieza','empiezan','empiezan','empiezan','empiezan'],
+      // 31 terminar
+      ['termino','terminamos','terminas','terminas','termináis','termináis','termináis','termina','termina','terminan','terminan','terminan','terminan'],
+      // 32 mirar
+      ['miro','miramos','miras','miras','miráis','miráis','miráis','mira','mira','miran','miran','miran','miran'],
+      // 33 decir
+      ['digo','decimos','dices','dices','decís','decís','decís','dice','dice','dicen','dicen','dicen','dicen'],
+      // 34 tomar
+      ['tomo','tomamos','tomas','tomas','tomáis','tomáis','tomáis','toma','toma','toman','toman','toman','toman'],
+      // 35 dar
+      ['doy','damos','das','das','dais','dais','dais','da','da','dan','dan','dan','dan'],
+      // 36 cerrar
+      ['cierro','cerramos','cierras','cierras','cerráis','cerráis','cerráis','cierra','cierra','cierran','cierran','cierran','cierran'],
+      // 37 viajar
+      ['viajo','viajamos','viajas','viajas','viajáis','viajáis','viajáis','viaja','viaja','viajan','viajan','viajan','viajan'],
+      // 38 volver
+      ['vuelvo','volvemos','vuelves','vuelves','volvéis','volvéis','volvéis','vuelve','vuelve','vuelven','vuelven','vuelven','vuelven'],
+      // 39 escuchar (atentamente)
+      ['escucho','escuchamos','escuchas','escuchas','escucháis','escucháis','escucháis','escucha','escucha','escuchan','escuchan','escuchan','escuchan'],
+      // 40 ver/mirar
+      ['veo','vemos','ves','ves','veis','veis','veis','ve','ve','ven','ven','ven','ven'],
+      // 41 practicar
+      ['practico','practicamos','practicas','practicas','practicáis','practicáis','practicáis','practica','practica','practican','practican','practican','practican'],
+      // 42 ordenar
+      ['ordeno','ordenamos','ordenas','ordenas','ordenáis','ordenáis','ordenáis','ordena','ordena','ordenan','ordenan','ordenan','ordenan'],
+      // 43 limpiar a fondo
+      ['limpio','limpiamos','limpias','limpias','limpiáis','limpiáis','limpiáis','limpia','limpia','limpian','limpian','limpian','limpian'],
+      // 44 descansar
+      ['descanso','descansamos','descansas','descansas','descansáis','descansáis','descansáis','descansa','descansa','descansan','descansan','descansan','descansan'],
+      // 45 comprar
+      ['compro','compramos','compras','compras','compráis','compráis','compráis','compra','compra','compran','compran','compran','compran'],
+      // 46 preparar
+      ['preparo','preparamos','preparas','preparas','preparáis','preparáis','preparáis','prepara','prepara','preparan','preparan','preparan','preparan'],
+      // 47 cenar
+      ['ceno','cenamos','cenas','cenas','cenáis','cenáis','cenáis','cena','cena','cenan','cenan','cenan','cenan'],
+      // 48 bailar
+      ['bailo','bailamos','bailas','bailas','bailáis','bailáis','bailáis','baila','baila','bailan','bailan','bailan','bailan'],
+      // 49 almorzar
+      ['almuerzo','almorzamos','almuerzas','almuerzas','almorzáis','almorzáis','almorzáis','almuerza','almuerza','almuerzan','almuerzan','almuerzan','almuerzan'],
+    ];
+
+    const verbs = [
+      {
+        base: 'يشرب', infinitive: 'beber',
+        forms: {
+          ana:     ['أشرب',   'ashrab'],
+          nahnu:   ['نشرب',   'nashrab'],
+          anta:    ['تشرب',   'tashrab'],
+          anti:    ['تشربين', 'tashrabīn'],
+          antuma:  ['تشربان', 'tashrabān'],
+          antum:   ['تشربون', 'tashrabūn'],
+          antunna: ['تشربن',  'tashrabna'],
+          huwa:    ['يشرب',   'yashrab'],
+          hiya:    ['تشرب',   'tashrab'],
+          huma_m:  ['يشربان', 'yashrabān'],
+          huma_f:  ['تشربان', 'tashrabān'],
+          hum:     ['يشربون', 'yashrabūn'],
+          hunna:   ['يشربن',  'yashrabna']
+        }
+      },
+      {
+        base: 'يكتب', infinitive: 'escribir',
+        forms: {
+          ana:     ['أكتب',   'aktub'],
+          nahnu:   ['نكتب',   'naktub'],
+          anta:    ['تكتب',   'taktub'],
+          anti:    ['تكتبين', 'taktubīn'],
+          antuma:  ['تكتبان', 'taktubān'],
+          antum:   ['تكتبون', 'taktubūn'],
+          antunna: ['تكتبن',  'taktubna'],
+          huwa:    ['يكتب',   'yaktub'],
+          hiya:    ['تكتب',   'taktub'],
+          huma_m:  ['يكتبان', 'yaktubān'],
+          huma_f:  ['تكتبان', 'taktubān'],
+          hum:     ['يكتبون', 'yaktubūn'],
+          hunna:   ['يكتبن',  'yaktubna']
+        }
+      },
+      {
+        base: 'يقرأ', infinitive: 'leer',
+        forms: {
+          ana:     ['أقرأ',    "aqra'"],
+          nahnu:   ['نقرأ',    "naqra'"],
+          anta:    ['تقرأ',    "taqra'"],
+          anti:    ['تقرئين',  "taqra'īn"],
+          antuma:  ['تقرآن',   "taqra'ān"],
+          antum:   ['تقرؤون',  "taqra'ūn"],
+          antunna: ['تقرأن',   "taqra'na"],
+          huwa:    ['يقرأ',    "yaqra'"],
+          hiya:    ['تقرأ',    "taqra'"],
+          huma_m:  ['يقرآن',   "yaqra'ān"],
+          huma_f:  ['تقرآن',   "taqra'ān"],
+          hum:     ['يقرؤون',  "yaqra'ūn"],
+          hunna:   ['يقرأن',   "yaqra'na"]
+        }
+      },
+      {
+        base: 'يذهب', infinitive: 'ir',
+        forms: {
+          ana:     ['أذهب',   'adhhab'],
+          nahnu:   ['نذهب',   'nadhhab'],
+          anta:    ['تذهب',   'tadhhab'],
+          anti:    ['تذهبين', 'tadhhabīn'],
+          antuma:  ['تذهبان', 'tadhhabān'],
+          antum:   ['تذهبون', 'tadhhabūn'],
+          antunna: ['تذهبن',  'tadhhabna'],
+          huwa:    ['يذهب',   'yadhhab'],
+          hiya:    ['تذهب',   'tadhhab'],
+          huma_m:  ['يذهبان', 'yadhhabān'],
+          huma_f:  ['تذهبان', 'tadhhabān'],
+          hum:     ['يذهبون', 'yadhhabūn'],
+          hunna:   ['يذهبن',  'yadhhabna']
+        }
+      },
+      {
+        base: 'ينام', infinitive: 'dormir',
+        forms: {
+          ana:     ['أنام',   'anam'],
+          nahnu:   ['ننام',   'nanam'],
+          anta:    ['تنام',   'tanam'],
+          anti:    ['تنامين', 'tanamīn'],
+          antuma:  ['تنامان', 'tanamān'],
+          antum:   ['تنامون', 'tanamūn'],
+          antunna: ['تنمن',   'tanamna'],
+          huwa:    ['ينام',   'yanam'],
+          hiya:    ['تنام',   'tanam'],
+          huma_m:  ['ينامان', 'yanamān'],
+          huma_f:  ['تنامان', 'tanamān'],
+          hum:     ['ينامون', 'yanamūn'],
+          hunna:   ['ينمن',   'yanamna']
+        }
+      },
+      {
+        base: 'يسكن', infinitive: 'vivir',
+        forms: {
+          ana:     ['أسكن',   'askun'],
+          nahnu:   ['نسكن',   'naskun'],
+          anta:    ['تسكن',   'taskun'],
+          anti:    ['تسكنين', 'taskunīn'],
+          antuma:  ['تسكنان', 'taskunān'],
+          antum:   ['تسكنون', 'taskunūn'],
+          antunna: ['تسكنن',  'taskunna'],
+          huwa:    ['يسكن',   'yaskun'],
+          hiya:    ['تسكن',   'taskun'],
+          huma_m:  ['يسكنان', 'yaskunān'],
+          huma_f:  ['تسكنان', 'taskunān'],
+          hum:     ['يسكنون', 'yaskunūn'],
+          hunna:   ['يسكنن',  'yaskunna']
+        }
+      },
+      {
+        base: 'يفتح', infinitive: 'abrir',
+        forms: {
+          ana:     ['أفتح',   'aftaḥ'],
+          nahnu:   ['نفتح',   'naftaḥ'],
+          anta:    ['تفتح',   'taftaḥ'],
+          anti:    ['تفتحين', 'taftaḥīn'],
+          antuma:  ['تفتحان', 'taftaḥān'],
+          antum:   ['تفتحون', 'taftaḥūn'],
+          antunna: ['تفتحن',  'taftaḥna'],
+          huwa:    ['يفتح',   'yaftaḥ'],
+          hiya:    ['تفتح',   'taftaḥ'],
+          huma_m:  ['يفتحان', 'yaftaḥān'],
+          huma_f:  ['تفتحان', 'taftaḥān'],
+          hum:     ['يفتحون', 'yaftaḥūn'],
+          hunna:   ['يفتحن',  'yaftaḥna']
+        }
+      },
+      {
+        base: 'يجلس', infinitive: 'sentarse',
+        forms: {
+          ana:     ['أجلس',   'ajlis'],
+          nahnu:   ['نجلس',   'najlis'],
+          anta:    ['تجلس',   'tajlis'],
+          anti:    ['تجلسين', 'tajlisīn'],
+          antuma:  ['تجلسان', 'tajlisān'],
+          antum:   ['تجلسون', 'tajlisūn'],
+          antunna: ['تجلسن',  'tajlisna'],
+          huwa:    ['يجلس',   'yajlis'],
+          hiya:    ['تجلس',   'tajlis'],
+          huma_m:  ['يجلسان', 'yajlisān'],
+          huma_f:  ['تجلسان', 'tajlisān'],
+          hum:     ['يجلسون', 'yajlisūn'],
+          hunna:   ['يجلسن',  'yajlisna']
+        }
+      },
+      {
+        base: 'يلعب', infinitive: 'jugar',
+        forms: {
+          ana:     ['ألعب',   'alʿab'],
+          nahnu:   ['نلعب',   'nalʿab'],
+          anta:    ['تلعب',   'talʿab'],
+          anti:    ['تلعبين', 'talʿabīn'],
+          antuma:  ['تلعبان', 'talʿabān'],
+          antum:   ['تلعبون', 'talʿabūn'],
+          antunna: ['تلعبن',  'talʿabna'],
+          huwa:    ['يلعب',   'yalʿab'],
+          hiya:    ['تلعب',   'talʿab'],
+          huma_m:  ['يلعبان', 'yalʿabān'],
+          huma_f:  ['تلعبان', 'talʿabān'],
+          hum:     ['يلعبون', 'yalʿabūn'],
+          hunna:   ['يلعبن',  'yalʿabna']
+        }
+      },
+      {
+        base: 'يفهم', infinitive: 'entender',
+        forms: {
+          ana:     ['أفهم',   'afham'],
+          nahnu:   ['نفهم',   'nafham'],
+          anta:    ['تفهم',   'tafham'],
+          anti:    ['تفهمين', 'tafhamīn'],
+          antuma:  ['تفهمان', 'tafhamān'],
+          antum:   ['تفهمون', 'tafhamūn'],
+          antunna: ['تفهمن',  'tafhamna'],
+          huwa:    ['يفهم',   'yafham'],
+          hiya:    ['تفهم',   'tafham'],
+          huma_m:  ['يفهمان', 'yafhamān'],
+          huma_f:  ['تفهمان', 'tafhamān'],
+          hum:     ['يفهمون', 'yafhamūn'],
+          hunna:   ['يفهمن',  'yafhamna']
+        }
+      },
+      {
+        base: 'يسمع', infinitive: 'escuchar / oír',
+        forms: {
+          ana:     ['أسمع',   'asmaʿ'],
+          nahnu:   ['نسمع',   'nasmaʿ'],
+          anta:    ['تسمع',   'tasmaʿ'],
+          anti:    ['تسمعين', 'tasmaʿīn'],
+          antuma:  ['تسمعان', 'tasmaʿān'],
+          antum:   ['تسمعون', 'tasmaʿūn'],
+          antunna: ['تسمعن',  'tasmaʿna'],
+          huwa:    ['يسمع',   'yasmaʿ'],
+          hiya:    ['تسمع',   'tasmaʿ'],
+          huma_m:  ['يسمعان', 'yasmaʿān'],
+          huma_f:  ['تسمعان', 'tasmaʿān'],
+          hum:     ['يسمعون', 'yasmaʿūn'],
+          hunna:   ['يسمعن',  'yasmaʿna']
+        }
+      },
+      {
+        base: 'يعمل', infinitive: 'trabajar',
+        forms: {
+          ana:     ['أعمل',   'aʿmal'],
+          nahnu:   ['نعمل',   'naʿmal'],
+          anta:    ['تعمل',   'taʿmal'],
+          anti:    ['تعملين', 'taʿmalīn'],
+          antuma:  ['تعملان', 'taʿmalān'],
+          antum:   ['تعملون', 'taʿmalūn'],
+          antunna: ['تعملن',  'taʿmalna'],
+          huwa:    ['يعمل',   'yaʿmal'],
+          hiya:    ['تعمل',   'taʿmal'],
+          huma_m:  ['يعملان', 'yaʿmalān'],
+          huma_f:  ['تعملان', 'taʿmalān'],
+          hum:     ['يعملون', 'yaʿmalūn'],
+          hunna:   ['يعملن',  'yaʿmalna']
+        }
+      },
+      {
+        base: 'يدرس', infinitive: 'estudiar',
+        forms: {
+          ana:     ['أدرس',   'adrus'],
+          nahnu:   ['ندرس',   'nadrus'],
+          anta:    ['تدرس',   'tadrus'],
+          anti:    ['تدرسين', 'tadrusīn'],
+          antuma:  ['تدرسان', 'tadrusān'],
+          antum:   ['تدرسون', 'tadrusūn'],
+          antunna: ['تدرسن',  'tadrusna'],
+          huwa:    ['يدرس',   'yadrus'],
+          hiya:    ['تدرس',   'tadrus'],
+          huma_m:  ['يدرسان', 'yadrusān'],
+          huma_f:  ['تدرسان', 'tadrusān'],
+          hum:     ['يدرسون', 'yadrusūn'],
+          hunna:   ['يدرسن',  'yadrusna']
+        }
+      },
+      {
+        base: 'يعرف', infinitive: 'conocer / saber',
+        forms: {
+          ana:     ['أعرف',   'aʿrif'],
+          nahnu:   ['نعرف',   'naʿrif'],
+          anta:    ['تعرف',   'taʿrif'],
+          anti:    ['تعرفين', 'taʿrifīn'],
+          antuma:  ['تعرفان', 'taʿrifān'],
+          antum:   ['تعرفون', 'taʿrifūn'],
+          antunna: ['تعرفن',  'taʿrifna'],
+          huwa:    ['يعرف',   'yaʿrif'],
+          hiya:    ['تعرف',   'taʿrif'],
+          huma_m:  ['يعرفان', 'yaʿrifān'],
+          huma_f:  ['تعرفان', 'taʿrifān'],
+          hum:     ['يعرفون', 'yaʿrifūn'],
+          hunna:   ['يعرفن',  'yaʿrifna']
+        }
+      },
+      {
+        base: 'يأكل', infinitive: 'comer',
+        forms: {
+          ana:     ['آكل',    'akul'],
+          nahnu:   ['نأكل',   "na'kul"],
+          anta:    ['تأكل',   "ta'kul"],
+          anti:    ['تأكلين', "ta'kulīn"],
+          antuma:  ['تأكلان', "ta'kulān"],
+          antum:   ['تأكلون', "ta'kulūn"],
+          antunna: ['تأكلن',  "ta'kulna"],
+          huwa:    ['يأكل',   "ya'kul"],
+          hiya:    ['تأكل',   "ta'kul"],
+          huma_m:  ['يأكلان', "ya'kulān"],
+          huma_f:  ['تأكلان', "ta'kulān"],
+          hum:     ['يأكلون', "ya'kulūn"],
+          hunna:   ['يأكلن',  "ya'kulna"]
+        }
+      },
+      {
+        base: 'يطبخ', infinitive: 'cocinar',
+        forms: {
+          ana:     ['أطبخ',   'aṭbukh'],
+          nahnu:   ['نطبخ',   'naṭbukh'],
+          anta:    ['تطبخ',   'taṭbukh'],
+          anti:    ['تطبخين', 'taṭbukhīn'],
+          antuma:  ['تطبخان', 'taṭbukhān'],
+          antum:   ['تطبخون', 'taṭbukhūn'],
+          antunna: ['تطبخن',  'taṭbukhna'],
+          huwa:    ['يطبخ',   'yaṭbukh'],
+          hiya:    ['تطبخ',   'taṭbukh'],
+          huma_m:  ['يطبخان', 'yaṭbukhān'],
+          huma_f:  ['تطبخان', 'taṭbukhān'],
+          hum:     ['يطبخون', 'yaṭbukhūn'],
+          hunna:   ['يطبخن',  'yaṭbukhna']
+        }
+      },
+      {
+        base: 'ينظف', infinitive: 'limpiar',
+        forms: {
+          ana:     ['أنظف',   'anẓuf'],
+          nahnu:   ['ننظف',   'nanẓuf'],
+          anta:    ['تنظف',   'tanẓuf'],
+          anti:    ['تنظفين', 'tanẓufīn'],
+          antuma:  ['تنظفان', 'tanẓufān'],
+          antum:   ['تنظفون', 'tanẓufūn'],
+          antunna: ['تنظفن',  'tanẓufna'],
+          huwa:    ['ينظف',   'yanẓuf'],
+          hiya:    ['تنظف',   'tanẓuf'],
+          huma_m:  ['ينظفان', 'yanẓufān'],
+          huma_f:  ['تنظفان', 'tanẓufān'],
+          hum:     ['ينظفون', 'yanẓufūn'],
+          hunna:   ['ينظفن',  'yanẓufna']
+        }
+      },
+      {
+        base: 'يحضر', infinitive: 'asistir / estar presente',
+        forms: {
+          ana:     ['أحضر',   'aḥḍur'],
+          nahnu:   ['نحضر',   'naḥḍur'],
+          anta:    ['تحضر',   'taḥḍur'],
+          anti:    ['تحضرين', 'taḥḍurīn'],
+          antuma:  ['تحضران', 'taḥḍurān'],
+          antum:   ['تحضرون', 'taḥḍurūn'],
+          antunna: ['تحضرن',  'taḥḍurna'],
+          huwa:    ['يحضر',   'yaḥḍur'],
+          hiya:    ['تحضر',   'taḥḍur'],
+          huma_m:  ['يحضران', 'yaḥḍurān'],
+          huma_f:  ['تحضران', 'taḥḍurān'],
+          hum:     ['يحضرون', 'yaḥḍurūn'],
+          hunna:   ['يحضرن',  'yaḥḍurna']
+        }
+      },
+      {
+        base: 'يحفظ', infinitive: 'memorizar / conservar',
+        forms: {
+          ana:     ['أحفظ',   'aḥfaẓ'],
+          nahnu:   ['نحفظ',   'naḥfaẓ'],
+          anta:    ['تحفظ',   'taḥfaẓ'],
+          anti:    ['تحفظين', 'taḥfaẓīn'],
+          antuma:  ['تحفظان', 'taḥfaẓān'],
+          antum:   ['تحفظون', 'taḥfaẓūn'],
+          antunna: ['تحفظن',  'taḥfaẓna'],
+          huwa:    ['يحفظ',   'yaḥfaẓ'],
+          hiya:    ['تحفظ',   'taḥfaẓ'],
+          huma_m:  ['يحفظان', 'yaḥfaẓān'],
+          huma_f:  ['تحفظان', 'taḥfaẓān'],
+          hum:     ['يحفظون', 'yaḥfaẓūn'],
+          hunna:   ['يحفظن',  'yaḥfaẓna']
+        }
+      },
+      {
+        base: 'يشرح', infinitive: 'explicar',
+        forms: {
+          ana:     ['أشرح',   'ashraḥ'],
+          nahnu:   ['نشرح',   'nashraḥ'],
+          anta:    ['تشرح',   'tashraḥ'],
+          anti:    ['تشرحين', 'tashraḥīn'],
+          antuma:  ['تشرحان', 'tashraḥān'],
+          antum:   ['تشرحون', 'tashraḥūn'],
+          antunna: ['تشرحن',  'tashraḥna'],
+          huwa:    ['يشرح',   'yashraḥ'],
+          hiya:    ['تشرح',   'tashraḥ'],
+          huma_m:  ['يشرحان', 'yashraḥān'],
+          huma_f:  ['تشرحان', 'tashraḥān'],
+          hum:     ['يشرحون', 'yashraḥūn'],
+          hunna:   ['يشرحن',  'yashraḥna']
+        }
+      },
+      {
+        base: 'يلبس', infinitive: 'ponerse / vestir',
+        forms: {
+          ana:     ['ألبس',   'albas'],
+          nahnu:   ['نلبس',   'nalbas'],
+          anta:    ['تلبس',   'talbas'],
+          anti:    ['تلبسين', 'talbasīn'],
+          antuma:  ['تلبسان', 'talbasān'],
+          antum:   ['تلبسون', 'talbasūn'],
+          antunna: ['تلبسن',  'talbasna'],
+          huwa:    ['يلبس',   'yalbas'],
+          hiya:    ['تلبس',   'talbas'],
+          huma_m:  ['يلبسان', 'yalbasān'],
+          huma_f:  ['تلبسان', 'talbasān'],
+          hum:     ['يلبسون', 'yalbasūn'],
+          hunna:   ['يلبسن',  'yalbasna']
+        }
+      },
+      {
+        base: 'يركب', infinitive: 'montar / subir',
+        forms: {
+          ana:     ['أركب',   'arkab'],
+          nahnu:   ['نركب',   'narkab'],
+          anta:    ['تركب',   'tarkab'],
+          anti:    ['تركبين', 'tarkabīn'],
+          antuma:  ['تركبان', 'tarkabān'],
+          antum:   ['تركبون', 'tarkabūn'],
+          antunna: ['تركبن',  'tarkabna'],
+          huwa:    ['يركب',   'yarkab'],
+          hiya:    ['تركب',   'tarkab'],
+          huma_m:  ['يركبان', 'yarkabān'],
+          huma_f:  ['تركبان', 'tarkabān'],
+          hum:     ['يركبون', 'yarkabūn'],
+          hunna:   ['يركبن',  'yarkabna']
+        }
+      },
+      {
+        base: 'يمشي', infinitive: 'caminar',
+        forms: {
+          ana:     ['أمشي',    'amshī'],
+          nahnu:   ['نمشي',    'namshī'],
+          anta:    ['تمشي',    'tamshī'],
+          anti:    ['تمشين',   'tamshīn'],
+          antuma:  ['تمشيان',  'tamshiyān'],
+          antum:   ['تمشون',   'tamshūn'],
+          antunna: ['تمشين',   'tamshīna'],
+          huwa:    ['يمشي',    'yamshī'],
+          hiya:    ['تمشي',    'tamshī'],
+          huma_m:  ['يمشيان',  'yamshiyān'],
+          huma_f:  ['تمشيان',  'tamshiyān'],
+          hum:     ['يمشون',   'yamshūn'],
+          hunna:   ['يمشين',   'yamshīna']
+        }
+      },
+      {
+        base: 'يسأل', infinitive: 'preguntar',
+        forms: {
+          ana:     ['أسأل',    "as'al"],
+          nahnu:   ['نسأل',    "nas'al"],
+          anta:    ['تسأل',    "tas'al"],
+          anti:    ['تسألين',  "tas'alīn"],
+          antuma:  ['تسألان',  "tas'alān"],
+          antum:   ['تسألون',  "tas'alūn"],
+          antunna: ['تسألن',   "tas'alna"],
+          huwa:    ['يسأل',    "yas'al"],
+          hiya:    ['تسأل',    "tas'al"],
+          huma_m:  ['يسألان',  "yas'alān"],
+          huma_f:  ['تسألان',  "tas'alān"],
+          hum:     ['يسألون',  "yas'alūn"],
+          hunna:   ['يسألن',   "yas'alna"]
+        }
+      },
+      {
+        base: 'يجيب', infinitive: 'responder',
+        forms: {
+          ana:     ['أجيب',   'ujīb'],
+          nahnu:   ['نجيب',   'nujīb'],
+          anta:    ['تجيب',   'tujīb'],
+          anti:    ['تجيبين', 'tujībīn'],
+          antuma:  ['تجيبان', 'tujībān'],
+          antum:   ['تجيبون', 'tujībūn'],
+          antunna: ['تجبن',   'tujibna'],
+          huwa:    ['يجيب',   'yujīb'],
+          hiya:    ['تجيب',   'tujīb'],
+          huma_m:  ['يجيبان', 'yujībān'],
+          huma_f:  ['تجيبان', 'tujībān'],
+          hum:     ['يجيبون', 'yujībūn'],
+          hunna:   ['يجبن',   'yujibna']
+        }
+      },
+      {
+        base: 'يدخل', infinitive: 'entrar',
+        forms: {
+          ana:     ['أدخل',   'adkhul'],
+          nahnu:   ['ندخل',   'nadkhul'],
+          anta:    ['تدخل',   'tadkhul'],
+          anti:    ['تدخلين', 'tadkhulīn'],
+          antuma:  ['تدخلان', 'tadkhulān'],
+          antum:   ['تدخلون', 'tadkhulūn'],
+          antunna: ['تدخلن',  'tadkhulna'],
+          huwa:    ['يدخل',   'yadkhul'],
+          hiya:    ['تدخل',   'tadkhul'],
+          huma_m:  ['يدخلان', 'yadkhulān'],
+          huma_f:  ['تدخلان', 'tadkhulān'],
+          hum:     ['يدخلون', 'yadkhulūn'],
+          hunna:   ['يدخلن',  'yadkhulna']
+        }
+      },
+      {
+        base: 'يخرج', infinitive: 'salir',
+        forms: {
+          ana:     ['أخرج',   'akhruj'],
+          nahnu:   ['نخرج',   'nakhruj'],
+          anta:    ['تخرج',   'takhruj'],
+          anti:    ['تخرجين', 'takhrujīn'],
+          antuma:  ['تخرجان', 'takhrujān'],
+          antum:   ['تخرجون', 'takhrujūn'],
+          antunna: ['تخرجن',  'takhrujna'],
+          huwa:    ['يخرج',   'yakhruj'],
+          hiya:    ['تخرج',   'takhruj'],
+          huma_m:  ['يخرجان', 'yakhrujān'],
+          huma_f:  ['تخرجان', 'takhrujān'],
+          hum:     ['يخرجون', 'yakhrujūn'],
+          hunna:   ['يخرجن',  'yakhrujna']
+        }
+      },
+      {
+        base: 'يصل', infinitive: 'llegar',
+        forms: {
+          ana:     ['أصل',   'aṣil'],
+          nahnu:   ['نصل',   'naṣil'],
+          anta:    ['تصل',   'taṣil'],
+          anti:    ['تصلين', 'taṣilīn'],
+          antuma:  ['تصلان', 'taṣilān'],
+          antum:   ['تصلون', 'taṣilūn'],
+          antunna: ['تصلن',  'taṣilna'],
+          huwa:    ['يصل',   'yaṣil'],
+          hiya:    ['تصل',   'taṣil'],
+          huma_m:  ['يصلان', 'yaṣilān'],
+          huma_f:  ['تصلان', 'taṣilān'],
+          hum:     ['يصلون', 'yaṣilūn'],
+          hunna:   ['يصلن',  'yaṣilna']
+        }
+      },
+      {
+        base: 'يجد', infinitive: 'encontrar',
+        forms: {
+          ana:     ['أجد',   'ajid'],
+          nahnu:   ['نجد',   'najid'],
+          anta:    ['تجد',   'tajid'],
+          anti:    ['تجدين', 'tajidīn'],
+          antuma:  ['تجدان', 'tajidān'],
+          antum:   ['تجدون', 'tajidūn'],
+          antunna: ['تجدن',  'tajidna'],
+          huwa:    ['يجد',   'yajid'],
+          hiya:    ['تجد',   'tajid'],
+          huma_m:  ['يجدان', 'yajidān'],
+          huma_f:  ['تجدان', 'tajidān'],
+          hum:     ['يجدون', 'yajidūn'],
+          hunna:   ['يجدن',  'yajidna']
+        }
+      },
+      {
+        base: 'يقف', infinitive: 'parar / estar de pie',
+        forms: {
+          ana:     ['أقف',   'aqif'],
+          nahnu:   ['نقف',   'naqif'],
+          anta:    ['تقف',   'taqif'],
+          anti:    ['تقفين', 'taqifīn'],
+          antuma:  ['تقفان', 'taqifān'],
+          antum:   ['تقفون', 'taqifūn'],
+          antunna: ['تقفن',  'taqifna'],
+          huwa:    ['يقف',   'yaqif'],
+          hiya:    ['تقف',   'taqif'],
+          huma_m:  ['يقفان', 'yaqifān'],
+          huma_f:  ['تقفان', 'taqifān'],
+          hum:     ['يقفون', 'yaqifūn'],
+          hunna:   ['يقفن',  'yaqifna']
+        }
+      },
+      {
+        base: 'يبدأ', infinitive: 'empezar',
+        forms: {
+          ana:     ['أبدأ',    "abda'"],
+          nahnu:   ['نبدأ',    "nabda'"],
+          anta:    ['تبدأ',    "tabda'"],
+          anti:    ['تبدأين',  "tabda'īn"],
+          antuma:  ['تبدآن',   "tabda'ān"],
+          antum:   ['تبدأون',  "tabda'ūn"],
+          antunna: ['تبدأن',   "tabda'na"],
+          huwa:    ['يبدأ',    "yabda'"],
+          hiya:    ['تبدأ',    "tabda'"],
+          huma_m:  ['يبدآن',   "yabda'ān"],
+          huma_f:  ['تبدآن',   "tabda'ān"],
+          hum:     ['يبدأون',  "yabda'ūn"],
+          hunna:   ['يبدأن',   "yabda'na"]
+        }
+      },
+      {
+        base: 'ينتهي', infinitive: 'terminar',
+        forms: {
+          ana:     ['أنتهي',    'antahī'],
+          nahnu:   ['ننتهي',    'nantahī'],
+          anta:    ['تنتهي',    'tantahī'],
+          anti:    ['تنتهين',   'tantahīn'],
+          antuma:  ['تنتهيان',  'tantahiyān'],
+          antum:   ['تنتهون',   'tantahūn'],
+          antunna: ['تنتهين',   'tantahīna'],
+          huwa:    ['ينتهي',    'yantahī'],
+          hiya:    ['تنتهي',    'tantahī'],
+          huma_m:  ['ينتهيان',  'yantahiyān'],
+          huma_f:  ['تنتهيان',  'tantahiyān'],
+          hum:     ['ينتهون',   'yantahūn'],
+          hunna:   ['ينتهين',   'yantahīna']
+        }
+      },
+      {
+        base: 'ينظر', infinitive: 'mirar',
+        forms: {
+          ana:     ['أنظر',   'anẓur'],
+          nahnu:   ['ننظر',   'nanẓur'],
+          anta:    ['تنظر',   'tanẓur'],
+          anti:    ['تنظرين', 'tanẓurīn'],
+          antuma:  ['تنظران', 'tanẓurān'],
+          antum:   ['تنظرون', 'tanẓurūn'],
+          antunna: ['تنظرن',  'tanẓurna'],
+          huwa:    ['ينظر',   'yanẓur'],
+          hiya:    ['تنظر',   'tanẓur'],
+          huma_m:  ['ينظران', 'yanẓurān'],
+          huma_f:  ['تنظران', 'tanẓurān'],
+          hum:     ['ينظرون', 'yanẓurūn'],
+          hunna:   ['ينظرن',  'yanẓurna']
+        }
+      },
+      {
+        base: 'يقول', infinitive: 'decir',
+        forms: {
+          ana:     ['أقول',   'aqūl'],
+          nahnu:   ['نقول',   'naqūl'],
+          anta:    ['تقول',   'taqūl'],
+          anti:    ['تقولين', 'taqūlīn'],
+          antuma:  ['تقولان', 'taqūlān'],
+          antum:   ['تقولون', 'taqūlūn'],
+          antunna: ['تقلن',   'taqulna'],
+          huwa:    ['يقول',   'yaqūl'],
+          hiya:    ['تقول',   'taqūl'],
+          huma_m:  ['يقولان', 'yaqūlān'],
+          huma_f:  ['تقولان', 'taqūlān'],
+          hum:     ['يقولون', 'yaqūlūn'],
+          hunna:   ['يقلن',   'yaqulna']
+        }
+      },
+      {
+        base: 'يأخذ', infinitive: 'tomar',
+        forms: {
+          ana:     ['آخذ',    'akhudh'],
+          nahnu:   ['نأخذ',   "na'khudh"],
+          anta:    ['تأخذ',   "ta'khudh"],
+          anti:    ['تأخذين', "ta'khudhīn"],
+          antuma:  ['تأخذان', "ta'khudhān"],
+          antum:   ['تأخذون', "ta'khudhūn"],
+          antunna: ['تأخذن',  "ta'khudhna"],
+          huwa:    ['يأخذ',   "ya'khudh"],
+          hiya:    ['تأخذ',   "ta'khudh"],
+          huma_m:  ['يأخذان', "ya'khudhān"],
+          huma_f:  ['تأخذان', "ta'khudhān"],
+          hum:     ['يأخذون', "ya'khudhūn"],
+          hunna:   ['يأخذن',  "ya'khudhna"]
+        }
+      },
+      {
+        base: 'يعطي', infinitive: 'dar',
+        forms: {
+          ana:     ['أعطي',    'uʿṭī'],
+          nahnu:   ['نعطي',    'nuʿṭī'],
+          anta:    ['تعطي',    'tuʿṭī'],
+          anti:    ['تعطين',   'tuʿṭīn'],
+          antuma:  ['تعطيان',  'tuʿṭiyān'],
+          antum:   ['تعطون',   'tuʿṭūn'],
+          antunna: ['تعطين',   'tuʿṭīna'],
+          huwa:    ['يعطي',    'yuʿṭī'],
+          hiya:    ['تعطي',    'tuʿṭī'],
+          huma_m:  ['يعطيان',  'yuʿṭiyān'],
+          huma_f:  ['تعطيان',  'tuʿṭiyān'],
+          hum:     ['يعطون',   'yuʿṭūn'],
+          hunna:   ['يعطين',   'yuʿṭīna']
+        }
+      },
+      {
+        base: 'يغلق', infinitive: 'cerrar',
+        forms: {
+          ana:     ['أغلق',   'ughliq'],
+          nahnu:   ['نغلق',   'nughliq'],
+          anta:    ['تغلق',   'tughliq'],
+          anti:    ['تغلقين', 'tughliqīn'],
+          antuma:  ['تغلقان', 'tughliqān'],
+          antum:   ['تغلقون', 'tughliqūn'],
+          antunna: ['تغلقن',  'tughliqna'],
+          huwa:    ['يغلق',   'yughliq'],
+          hiya:    ['تغلق',   'tughliq'],
+          huma_m:  ['يغلقان', 'yughliqān'],
+          huma_f:  ['تغلقان', 'tughliqān'],
+          hum:     ['يغلقون', 'yughliqūn'],
+          hunna:   ['يغلقن',  'yughliqna']
+        }
+      },
+      {
+        base: 'يسافر', infinitive: 'viajar',
+        forms: {
+          ana:     ['أسافر',   'usafir'],
+          nahnu:   ['نسافر',   'nusafir'],
+          anta:    ['تسافر',   'tusafir'],
+          anti:    ['تسافرين', 'tusafirīn'],
+          antuma:  ['تسافران', 'tusafirān'],
+          antum:   ['تسافرون', 'tusafirūn'],
+          antunna: ['تسافرن',  'tusafirna'],
+          huwa:    ['يسافر',   'yusafir'],
+          hiya:    ['تسافر',   'tusafir'],
+          huma_m:  ['يسافران', 'yusafirān'],
+          huma_f:  ['تسافران', 'tusafirān'],
+          hum:     ['يسافرون', 'yusafirūn'],
+          hunna:   ['يسافرن',  'yusafirna']
+        }
+      },
+      {
+        base: 'يرجع', infinitive: 'volver',
+        forms: {
+          ana:     ['أرجع',   'arjiʿ'],
+          nahnu:   ['نرجع',   'narjiʿ'],
+          anta:    ['ترجع',   'tarjiʿ'],
+          anti:    ['ترجعين', 'tarjiʿīn'],
+          antuma:  ['ترجعان', 'tarjiʿān'],
+          antum:   ['ترجعون', 'tarjiʿūn'],
+          antunna: ['ترجعن',  'tarjiʿna'],
+          huwa:    ['يرجع',   'yarjiʿ'],
+          hiya:    ['ترجع',   'tarjiʿ'],
+          huma_m:  ['يرجعان', 'yarjiʿān'],
+          huma_f:  ['ترجعان', 'tarjiʿān'],
+          hum:     ['يرجعون', 'yarjiʿūn'],
+          hunna:   ['يرجعن',  'yarjiʿna']
+        }
+      },
+      {
+        base: 'يستمع', infinitive: 'escuchar (atentamente)',
+        forms: {
+          ana:     ['أستمع',   'astamiʿ'],
+          nahnu:   ['نستمع',   'nastamiʿ'],
+          anta:    ['تستمع',   'tastamiʿ'],
+          anti:    ['تستمعين', 'tastamiʿīn'],
+          antuma:  ['تستمعان', 'tastamiʿān'],
+          antum:   ['تستمعون', 'tastamiʿūn'],
+          antunna: ['تستمعن',  'tastamiʿna'],
+          huwa:    ['يستمع',   'yastamiʿ'],
+          hiya:    ['تستمع',   'tastamiʿ'],
+          huma_m:  ['يستمعان', 'yastamiʿān'],
+          huma_f:  ['تستمعان', 'tastamiʿān'],
+          hum:     ['يستمعون', 'yastamiʿūn'],
+          hunna:   ['يستمعن',  'yastamiʿna']
+        }
+      },
+      {
+        base: 'يشاهد', infinitive: 'ver / mirar',
+        forms: {
+          ana:     ['أشاهد',   'ushāhid'],
+          nahnu:   ['نشاهد',   'nushāhid'],
+          anta:    ['تشاهد',   'tushāhid'],
+          anti:    ['تشاهدين', 'tushāhidīn'],
+          antuma:  ['تشاهدان', 'tushāhidān'],
+          antum:   ['تشاهدون', 'tushāhidūn'],
+          antunna: ['تشاهدن',  'tushāhidna'],
+          huwa:    ['يشاهد',   'yushāhid'],
+          hiya:    ['تشاهد',   'tushāhid'],
+          huma_m:  ['يشاهدان', 'yushāhidān'],
+          huma_f:  ['تشاهدان', 'tushāhidān'],
+          hum:     ['يشاهدون', 'yushāhidūn'],
+          hunna:   ['يشاهدن',  'yushāhidna']
+        }
+      },
+      {
+        base: 'يمارس', infinitive: 'practicar',
+        forms: {
+          ana:     ['أمارس',   'umāris'],
+          nahnu:   ['نمارس',   'numāris'],
+          anta:    ['تمارس',   'tumāris'],
+          anti:    ['تمارسين', 'tumārisīn'],
+          antuma:  ['تمارسان', 'tumārisān'],
+          antum:   ['تمارسون', 'tumārisūn'],
+          antunna: ['تمارسن',  'tumārisna'],
+          huwa:    ['يمارس',   'yumāris'],
+          hiya:    ['تمارس',   'tumāris'],
+          huma_m:  ['يمارسان', 'yumārisān'],
+          huma_f:  ['تمارسان', 'tumārisān'],
+          hum:     ['يمارسون', 'yumārisūn'],
+          hunna:   ['يمارسن',  'yumārisna']
+        }
+      },
+      {
+        base: 'يرتّب', infinitive: 'ordenar',
+        forms: {
+          ana:     ['أرتّب',   'urattib'],
+          nahnu:   ['نرتّب',   'nurattib'],
+          anta:    ['ترتّب',   'turattib'],
+          anti:    ['ترتّبين', 'turattibin'],
+          antuma:  ['ترتّبان', 'turattibān'],
+          antum:   ['ترتّبون', 'turattibūn'],
+          antunna: ['ترتّبن',  'turattibna'],
+          huwa:    ['يرتّب',   'yurattib'],
+          hiya:    ['ترتّب',   'turattib'],
+          huma_m:  ['يرتّبان', 'yurattibān'],
+          huma_f:  ['ترتّبان', 'turattibān'],
+          hum:     ['يرتّبون', 'yurattibūn'],
+          hunna:   ['يرتّبن',  'yurattibna']
+        }
+      },
+      {
+        base: 'ينظّف', infinitive: 'limpiar (a fondo)',
+        forms: {
+          ana:     ['أنظّف',   'unaẓẓif'],
+          nahnu:   ['ننظّف',   'nunaẓẓif'],
+          anta:    ['تنظّف',   'tunaẓẓif'],
+          anti:    ['تنظّفين', 'tunaẓẓifīn'],
+          antuma:  ['تنظّفان', 'tunaẓẓifān'],
+          antum:   ['تنظّفون', 'tunaẓẓifūn'],
+          antunna: ['تنظّفن',  'tunaẓẓifna'],
+          huwa:    ['ينظّف',   'yunaẓẓif'],
+          hiya:    ['تنظّف',   'tunaẓẓif'],
+          huma_m:  ['ينظّفان', 'yunaẓẓifān'],
+          huma_f:  ['تنظّفان', 'tunaẓẓifān'],
+          hum:     ['ينظّفون', 'yunaẓẓifūn'],
+          hunna:   ['ينظّفن',  'yunaẓẓifna']
+        }
+      },
+      {
+        base: 'يستريح', infinitive: 'descansar',
+        forms: {
+          ana:     ['أستريح',    'astarīḥ'],
+          nahnu:   ['نستريح',    'nastarīḥ'],
+          anta:    ['تستريح',    'tastarīḥ'],
+          anti:    ['تستريحين',  'tastarīḥīn'],
+          antuma:  ['تستريحان',  'tastarīḥān'],
+          antum:   ['تستريحون',  'tastarīḥūn'],
+          antunna: ['تسترحن',    'tastarīḥna'],
+          huwa:    ['يستريح',    'yastarīḥ'],
+          hiya:    ['تستريح',    'tastarīḥ'],
+          huma_m:  ['يستريحان',  'yastarīḥān'],
+          huma_f:  ['تستريحان',  'tastarīḥān'],
+          hum:     ['يستريحون',  'yastarīḥūn'],
+          hunna:   ['يسترحن',    'yastarīḥna']
+        }
+      },
+      {
+        base: 'يشتري', infinitive: 'comprar',
+        forms: {
+          ana:     ['أشتري',    'ashtarī'],
+          nahnu:   ['نشتري',    'nashtarī'],
+          anta:    ['تشتري',    'tashtarī'],
+          anti:    ['تشترين',   'tashtarīn'],
+          antuma:  ['تشتريان',  'tashtariyān'],
+          antum:   ['تشترون',   'tashtarūn'],
+          antunna: ['تشترين',   'tashtarīna'],
+          huwa:    ['يشتري',    'yashtarī'],
+          hiya:    ['تشتري',    'tashtarī'],
+          huma_m:  ['يشتريان',  'yashtariyān'],
+          huma_f:  ['تشتريان',  'tashtariyān'],
+          hum:     ['يشترون',   'yashtarūn'],
+          hunna:   ['يشترين',   'yashtarīna']
+        }
+      },
+      {
+        base: 'يحضّر', infinitive: 'preparar',
+        forms: {
+          ana:     ['أحضّر',   'uḥaḍḍir'],
+          nahnu:   ['نحضّر',   'nuḥaḍḍir'],
+          anta:    ['تحضّر',   'tuḥaḍḍir'],
+          anti:    ['تحضّرين', 'tuḥaḍḍirīn'],
+          antuma:  ['تحضّران', 'tuḥaḍḍirān'],
+          antum:   ['تحضّرون', 'tuḥaḍḍirūn'],
+          antunna: ['تحضّرن',  'tuḥaḍḍirna'],
+          huwa:    ['يحضّر',   'yuḥaḍḍir'],
+          hiya:    ['تحضّر',   'tuḥaḍḍir'],
+          huma_m:  ['يحضّران', 'yuḥaḍḍirān'],
+          huma_f:  ['تحضّران', 'tuḥaḍḍirān'],
+          hum:     ['يحضّرون', 'yuḥaḍḍirūn'],
+          hunna:   ['يحضّرن',  'yuḥaḍḍirna']
+        }
+      },
+      {
+        base: 'يتعشّى', infinitive: 'cenar',
+        forms: {
+          ana:     ['أتعشّى',    'ataʿashsha'],
+          nahnu:   ['نتعشّى',    'nataʿashsha'],
+          anta:    ['تتعشّى',    'tataʿashsha'],
+          anti:    ['تتعشّين',   'tataʿashshayn'],
+          antuma:  ['تتعشّيان',  'tataʿashshayān'],
+          antum:   ['تتعشّون',   'tataʿashshūn'],
+          antunna: ['تتعشّين',   'tataʿashshayna'],
+          huwa:    ['يتعشّى',    'yataʿashsha'],
+          hiya:    ['تتعشّى',    'tataʿashsha'],
+          huma_m:  ['يتعشّيان',  'yataʿashshayān'],
+          huma_f:  ['تتعشّيان',  'tataʿashshayān'],
+          hum:     ['يتعشّون',   'yataʿashshūn'],
+          hunna:   ['يتعشّين',   'yataʿashshayna']
+        }
+      },
+      {
+        base: 'يرقص', infinitive: 'bailar',
+        forms: {
+          ana:     ['أرقص',   'arquṣ'],
+          nahnu:   ['نرقص',   'narquṣ'],
+          anta:    ['ترقص',   'tarquṣ'],
+          anti:    ['ترقصين', 'tarquṣīn'],
+          antuma:  ['ترقصان', 'tarquṣān'],
+          antum:   ['ترقصون', 'tarquṣūn'],
+          antunna: ['ترقصن',  'tarquṣna'],
+          huwa:    ['يرقص',   'yarquṣ'],
+          hiya:    ['ترقص',   'tarquṣ'],
+          huma_m:  ['يرقصان', 'yarquṣān'],
+          huma_f:  ['ترقصان', 'tarquṣān'],
+          hum:     ['يرقصون', 'yarquṣūn'],
+          hunna:   ['يرقصن',  'yarquṣna']
+        }
+      },
+      {
+        base: 'يتغدّى', infinitive: 'almorzar',
+        forms: {
+          ana:     ['أتغدّى',    'ataghadda'],
+          nahnu:   ['نتغدّى',    'nataghadda'],
+          anta:    ['تتغدّى',    'tataghadda'],
+          anti:    ['تتغدّين',   'tataghaddayn'],
+          antuma:  ['تتغدّيان',  'tataghaddayān'],
+          antum:   ['تتغدّون',   'tataghaddūn'],
+          antunna: ['تتغدّين',   'tataghaddayna'],
+          huwa:    ['يتغدّى',    'yataghadda'],
+          hiya:    ['تتغدّى',    'tataghadda'],
+          huma_m:  ['يتغدّيان',  'yataghaddayān'],
+          huma_f:  ['تتغدّيان',  'tataghaddayān'],
+          hum:     ['يتغدّون',   'yataghaddūn'],
+          hunna:   ['يتغدّين',   'yataghaddayna']
+        }
+      }
+    ];
+
+    // Generar tarjetas
+    const cards = [];
+    verbs.forEach((verb, verbIdx) => {
+      pronouns.forEach((pronoun, pronIdx) => {
+        const form = verb.forms[pronoun.key];
+        const spanishConj = conjug[verbIdx] ? conjug[verbIdx][pronIdx] : verb.infinitive;
+        cards.push({
+          front: `${pronoun.label} (${verb.base})`,
+          backArabic: form[0],
+          pronunciation: form[1],
+          meaning: `${pronoun.meaning} ${spanishConj}`
+        });
+      });
+    });
+
+    let current = 0;
+    let randomMode = false;
+
+    const card = document.getElementById('card');
+    const front = document.getElementById('front');
+    const back = document.getElementById('back');
+    const randomBtn = document.getElementById('randomBtn');
+
+    function renderCard() {
+      const c = cards[current];
+      front.innerHTML = `
+        <div class="arabic">${c.front}</div>
+        <div class="hint">toca para ver la respuesta</div>
+      `;
+      back.innerHTML = `
+        <div class="arabic">${c.backArabic}</div>
+        <div class="pronunciation">${c.pronunciation}</div>
+        <div class="meaning">${c.meaning}</div>
+      `;
+      card.classList.remove('flipped');
+    }
+
+    function flipCard() { card.classList.toggle('flipped'); }
+
+    function nextCard() {
+      current = randomMode
+        ? Math.floor(Math.random() * cards.length)
+        : (current + 1) % cards.length;
+      renderCard();
+    }
+
+    function prevCard() {
+      current = randomMode
+        ? Math.floor(Math.random() * cards.length)
+        : (current - 1 + cards.length) % cards.length;
+      renderCard();
+    }
+
+    function toggleRandom() {
+      randomMode = !randomMode;
+      randomBtn.textContent = `🔀 Aleatorio: ${randomMode ? 'SÍ' : 'NO'}`;
+      randomBtn.classList.toggle('active', randomMode);
+    }
+
+    function shuffleCards() {
+      for (let i = cards.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      current = 0;
+      renderCard();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+      if (e.key === 'ArrowRight') nextCard();
+      if (e.key === 'ArrowLeft') prevCard();
+    });
+
+    renderCard();
+  </script>
+</body>
+</html>
